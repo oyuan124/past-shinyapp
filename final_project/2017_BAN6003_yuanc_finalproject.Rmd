@@ -1,0 +1,387 @@
+---
+title: 'Los Angeles Crime Report'
+author: Null
+date: Null
+output: 
+  html_document:
+    code_folding: hide
+runtime: shiny
+---
+
+# Project Introduction
+
+Los Angeles is a wonderful city, but also a dangerous city. Just like any other big city, LA has safe areas and unsafe areas. Therefore, it is important to learn about the situation. In my final project, I will use a messy data obtained online to address 2 problems:
+
+* Describe the trend of crimes in LA from several perspectives
+* Locate dangerous divisions and try to map them
+
+
+# Project Components #  {.tabset .tabset-fade .tabset-pills}
+
+## **Synopsis**
+
+<img src="LA1.jpg" style="width:800px;height:370px;" ALIGN="Top">
+
+For my final project, I analyzed data about crimes in Los Angeles from different perspectives by using a online dataset. I tracked crime trends based on types, time and locations of crime. And I also created an interactive map to present data.
+
+## **Packages Required**
+In my current analysis, I used some normal packages in cleaning, visualizing and presenting data including:
+
+* **readr**    read and save file
+* **ggplot2**    visulize data
+* **tidyr**   tidy data (separate, unite etc.)
+* **dplyr**   transform data and calculate grouped values (filter, select, mutate etc.)
+* **magrittr**   generate pipe operator
+* **DT**  present data in webpage
+* **knitr**   present table in webpage
+* **shiny**   develop shiny app and publish it online
+* **leaflet**   create interactive map
+
+
+```{r message = FALSE, warning = FALSE}
+
+## install missing packages ##
+
+list.of.packages <- c("readr", "ggplot2", "tidyr", "dplyr", "magrittr", "DT", "knitr", "shiny", "leaflet")
+new.packages <- list.of.packages[!(list.of.packages %in% installed.packages()[,"Package"])]
+if(length(new.packages))install.packages(new.packages)
+
+
+## load packages ##
+library(readr) ## read and save file
+library(ggplot2) ## visualize data
+library(tidyr) ## tidyr data
+library(dplyr) ## transform data
+library(magrittr) ## generate pipe operator
+library(DT) ## present data in webpage
+library(knitr) ## present table in webpage
+library(shiny) ## develop shiny app
+library(leaflet) ## create interactive map
+
+```
+
+## **Data Preparation** # {.tabset .tabset-fade .tabset-pills}
+
+### Data Source
+
+I found this dataset on a free data-sharing website [Kaggle.com](https://www.kaggle.com/kingburrito666/los-angeles-crime). It has all information about reported crime in LA from 2012 to 2016. But it is *missing a few weeks* in both December 2015 and December 2016 (Winter break).  
+This dataset is 184 MB and contains over 1 million observations.  
+The original dataset has 14 variables and these variables havedifferent types such as number, character and date.  
+Because of massive observations and complicated variable types, the dataset has to be cleaned and analyzed by using programming language, which, in this case, is **R**.
+
+### Data Import
+
+I used function *read.csv* to import data and rename columns. I can rename columns here because there is a explaination about variables on the [source website](https://www.kaggle.com/kingburrito666/los-angeles-crime). I named columns in a proper format(words are connected with underscores, no spaces etc.) so I can aviod some trouble in the cleaning process.
+
+```{r message = FALSE, warning = FALSE}
+
+## read data file and rename columns so their names are in proper formats and make sense ##
+
+rawdata <- read_csv("LA_crimes_2012_2016.csv") 
+                    
+colnames(rawdata) <-  c("date_reported", "case_number", "date_occur", "time_occur", "area_number", "area_name", "RD", "crime_code", "crime_type", "crime_status", "crime_status_des", "street_loc", "cross_street", "lat_lon")
+
+
+```
+
+### Data Cleaning
+
+After I glanced at the dataset, I found some problems but I also found solutions:
+
+* The format of date is mm/dd/yy, which is fine in daily life, but I want to **separate** it so I can analyze on different scales of time.
+* Some columns such as crime code, case number and area number are not my concern so I want to **delete** some columns.
+* I hate missing values! **Delete** observations that contain missing values
+* After these step, I **stored my data as a rds. file** for future analysis
+* There are some **punctuations, spaces and redundant words** in variable "crime_type" so I use **regular expression** to clean it.
+* I also used **regular expression** to clean variable "crime status description" because it has different values that have the same meaning.
+* I want to create general types to make outcomes more straightforward to my audience(classification standards are quoted from [here](https://www.legalmatch.com/law-library/article/what-are-the-different-types-of-crimes.html)):
+    + Inchoate Crime: crimes that were begun, but not completed.
+    + Personal Crime: offenses against the person, including assault, battery, offenses of a sexual nature
+    + Property Crime: offenses against property, including theft, robbery and burglary
+    + Weapon Use: crimes involve in weapons and bombs
+    + Traffic: I separate this apart because it's like a 'extreme value' in my situation. So I can remove it from my analysis when I need to do that
+    + Non-violent Crime: crimes such as documents damage, midnight noise and so on.
+* I also separate lat_lon column because I need latitude and longitude respectively to map.
+
+```{r message = FALSE, warning = FALSE}
+   
+## read rds file and clean punctuations, spaces and redundant words in crime_type and crime_status_des ##
+
+  clean_ver1 <- read_rds("clean_data_ver1.rds")
+  
+  clean_ver1$crime_type <- gsub("\\(.*|#| DR", "", 
+                                clean_ver1$crime_type)
+  
+  clean_ver1$crime_type <- gsub(",| - | -|- ", "-", clean_ver1$crime_type)
+  
+  clean_ver1$crime_status_des <- gsub("UNK|unknown", "Unknown", clean_ver1$crime_status_des)
+  
+## Use regular expression to sort 129 crime types into 6 general types ##
+
+  clean_ver1$crime_ge_type <- clean_ver1$crime_type
+  
+  clean_ver1$crime_ge_type <- gsub(pattern = ".*ATTEMPTED.*|.*ATTEMPT.*", 
+                                      replacement = "Inchoate Crime", clean_ver1$crime_ge_type)
+  
+  clean_ver1$crime_ge_type <- gsub(pattern = ".*BATTERY.*|.*SEX.*|.*ASSAULT.*|.*HOMICIDE.*", 
+                                      replacement = "Personal Crime", clean_ver1$crime_ge_type)
+  
+  clean_ver1$crime_ge_type <- gsub(pattern = ".*THEFT.*|.*ROBBERY.*|.*BURGLARY.*|.*STOLEN.*", 
+                                      replacement = "Property Crime", clean_ver1$crime_ge_type)
+  
+  clean_ver1$crime_ge_type <- gsub(pattern = ".*BOMB.*|.*WEAPON.*|.*SHOTS.*", 
+                                      replacement = "Weapon Use", clean_ver1$crime_ge_type)
+  
+  clean_ver1$crime_ge_type <- gsub(pattern = "TRAFFIC",
+                                      replacement = "Traffic", clean_ver1$crime_ge_type)
+  
+  clean_ver1$crime_ge_type[!grepl(pattern = "[A-Za-z] Crime|Traffic|Use", x = clean_ver1$crime_ge_type)] <- "Non-violent Crime"
+
+## Separate lat_lon column to prepare for mapping and delete miscoded values again ## 
+
+  clean_ver1$lat_lon <- gsub(pattern = "\\(|\\)",
+                                   replacement = "", clean_ver1$lat_lon)
+  
+  separate(clean_ver1, lat_lon, c("lat", "lng"), sep = ",") %>% 
+    na.omit() %>% 
+    filter(lat != "0.0") -> clean_ver1
+
+```
+
+### Data Dictionary
+
+I create this dictionary so that you can understand the types and meanings of variables in my dataset.
+
+```{r message = FALSE, warning = FALSE}
+
+## create vectors to build data dictionary ##
+
+
+var_des <- c("Month crime was reported", "Day crime was reported", "Year crime was reported", 
+             "Month crime occured", "Day crime was occured", "Year crime was occured",
+             "Time crime occured", "Name of area where crime happened", "Type of crime", "Description of crime status",
+             "Street where crime happened", "Longgitude of location where crime happened", "Latitude of location where crime happened", "General types of crime")
+
+var_type <- sapply(clean_ver1, class)
+                        
+data_d <- as.data.frame(cbind(var_type, var_des))
+
+colnames(data_d) <- c("Type of Variable", "Description")
+
+kable(data_d)
+
+```
+
+
+
+## **Exploratory Data Analysis** # {.tabset .tabset-fade .tabset-pills}
+
+
+### **Dangerous Divisions**
+
+```{r message = FALSE, warning = FALSE}
+
+## barchart for crimes in different divisions ## 
+  
+filter(clean_ver1, crime_ge_type %in% c("Personal Crime", "Property Crime", "Weapon Use", "Inchoate Crime")) %>% 
+  ggplot() +
+  geom_bar(mapping = aes(x = reorder(area_name, area_name, function(x)-length(x))), fill = "#FFCC99") +
+  labs(title = "Dangerous Areas in LA",
+       subtitle = "Number of Crimes in Different Divisions", 
+         x = "Area", y = "Number of Crimes") +  
+  theme(axis.text.x = element_text(angle = -45, hjust = -0.05))
+
+
+```
+
+In this part, 'Traffic' is excluded from data because traffic accidents are not crimes and 'Traffic' has the greatest frequency in my dataset. 'Non-violent Crime' is also excluded because only violent crimes are my concern in this case.  
+
+Based on this chart, **77th Street**, **Southwest**, **Pacific**, **North Hollywood** and **Southeast** are five of the most dangerous divisions in LA. Over 35000 violent crimes have happened in each division in the last 5 years.  
+If we combine this with locations of divisions, we can find that **77th Street**, **Southwest**, **Pacific** and **Southeast** are four adjacent divisions in southern part of LA. This area may be the most dangerous area in LA. 
+
+### **Most Common Crime Type**
+
+```{r message = FALSE, warning = FALSE}
+
+## barchart for types of crime in different years ##
+
+  ggplot(data = clean_ver1)+
+  geom_bar(mapping = aes(x = crime_ge_type), fill = "#FFCC99") +
+  labs(title = "The Most Common Crime", subtitle = "Numbers of different types of crime",
+       x = "Type of Crime", y = "Count")+
+  theme(axis.text.x = element_text(angle = -45, hjust = -0.002))+
+  facet_wrap(~ year_occur, nrow = 3)
+
+```
+
+From this bar chart, we can see that **property crime** is the most common crime in LA from 2012 to 2016. As mentioned before, property crime includes theft, robbery and burglary, some of which can happen on the street in daytime. Therefore, it's always good to **pay extra attention** to your possessions. For instance, be careful When you are using your phone on the street.  
+
+Non-violent crime is the second common crime in LA. Crimes like document damage and midnight noise are counted as Non-violent crime. The fact that 4 million people live in LA proves it. We can also notice that personal crime is only one third of property crime. Since safety in LA is always a hot topic, more and more people are aware of potential danger.
+
+
+### **How Crimes Quantity Changed**
+
+```{r message = FALSE, warning = FALSE}
+
+## linechart for crime in different years ##
+
+table(clean_ver1$year_occur) %>% 
+  as.data.frame() %>% 
+  arrange(Var1) %>% 
+  ggplot() +
+  geom_line(mapping = aes(x = Var1, y = Freq, group = 1), 
+            linetype = 1, color = "#006699") +
+  labs(title = "Number of Crime in Different Years",
+       x = "Year", y = "Count") +
+  theme(axis.text.x = element_text(angle = 0)) +
+  geom_point(aes(x = Var1, y = Freq), size = 4, color = "#FF9933")
+
+```
+
+**Don't feel relieved when you see this plot!**  
+**Don't feel relieved when you see this plot!**    
+**Don't feel relieved when you see this plot!**    
+The number of crimes decreases sharply in 2015 and 2016 because there are some missing weeks in 2015 and 2016. Therefore, we can not conclude that crimes in LA have decreased. But we can see the number of crimes **fluctuated** around 235000 from 2012 to 2014.  
+I wii dig deeper into this to see whether there are differences in different types of crimes.
+
+```{r message = FALSE, warning = FALSE}
+
+## linechart for different types of crime in different years ##
+
+table(clean_ver1$year_occur, clean_ver1$crime_ge_type) %>% 
+  as.data.frame() %>% 
+  ggplot()+
+  geom_line(mapping = aes(x = Var1, y = Freq, group = Var2, color = Var2))+
+  labs(title = "Trend of Crime Types",
+    subtitle = "Numbers of Crime Types in Different Years",
+    x = "Year", y = "Count of Crime") +
+  geom_point(aes(x = Var1, y = Freq, group = Var2), size = 2, color = "#006666")
+
+```
+
+From this plot we can see that there aren't obvious differences among crimes. Traffic decreases sharply because of missing data. **Non-violent crime, personal crime and inchoate crime have fluctuated since 2012.**Weapon use and property crime have **increased** in the past 2 years.  
+To sum up, even though there are some missing data in 2015 and 2016, we can still conclude that the number of crimes in Los Angeles doesn't decrease in these years.
+
+### **How Crimes Are Solved**
+
+```{r message = FALSE, warning = FALSE}
+
+## Barchart for crime status in different years ##
+
+ggplot(data = clean_ver1)+
+  geom_bar(mapping = aes(x = crime_ge_type, fill = crime_status_des), position = "fill") +
+  labs(title = "Crime Status in Different Years",
+       x = "Year", y = "Proporrtion of Status") +
+  theme(axis.text.x = element_text(angle = -45, hjust = -0.1))+
+  facet_wrap(~ year_occur, nrow = 3)
+
+
+```
+
+Different crime statuses of 6 types of crimes in 5 years are plotted. There are two obvious features:
+* Only a small part of criminals were arrested.
+* All crimes were solved, though solved by different ways.   
+Now you can feel relieved when you see this chart because we can see crimes were solved in most of the time. And only a few criminals were arrested. Maybe that's why the number of crimes doesn't decrease in there years.
+
+
+## **Buffet Time**
+
+I developed this shiny app so you can check crime trend in LA by yourself.  
+   
+I set 3 options in input panel: **year**, **division** and **crime type**. You can select the nearest division and crime type that you are interested in.  
+   
+In the output panel, there is a **plot** that shows numbers of crimes in every month in selected year and selected divison. You can also use the **map** to observe crime situations in your location.
+
+```{r message = FALSE, warning = FALSE}
+
+## generate selection lists for inputs in shiny app ##
+
+name_of_area <- unique(clean_ver1$area_name)
+ge_type <- unique(clean_ver1$crime_ge_type)
+clean_ver1$lat <- as.numeric(clean_ver1$lat) 
+clean_ver1$lng <- as.numeric(clean_ver1$lng) 
+
+
+
+    fluidRow(
+    titlePanel("Numbers and Geographical Distribution of Crime"),
+    
+    column(3,
+      wellPanel(
+      selectInput(inputId = "n_year", label = "Year", 
+                  choices = c(2012:2016), selected = 2012),
+      
+      selectInput(inputId = "n_area", label = "Division", 
+                  choices = name_of_area, selected = "Central"),
+      
+      selectInput(inputId = "n_getype", label = "Crime Type",
+                  choices = ge_type, selected = "Non-violent Crime"))),
+    column(9,
+      tabsetPanel(
+        tabPanel("Bar Chart", plotOutput("crimeplot")),
+        tabPanel("Map", leafletOutput("mymap"))))
+    )
+      
+      
+  
+   
+
+   output$mymap <- renderLeaflet({ filter(clean_ver1, year_occur == input$n_year, area_name == input$n_area
+                                       , crime_ge_type == input$n_getype) %>% 
+        leaflet() %>% 
+        addTiles() %>% 
+        addMarkers(~lng, ~lat,
+          clusterOptions = markerClusterOptions())
+     
+   })
+        
+    output$crimeplot <- renderPlot({ filter(clean_ver1, year_occur == input$n_year, 
+                                            area_name == input$n_area, crime_ge_type == input$n_getype) %>% 
+        ggplot() +
+        geom_bar(mapping = aes(x = month_occur), fill = "#993300")+
+        labs(title = "Crime trend in LA",
+       subtitle = "Number of Crimes", 
+         x = "Month", y = "Number of Crimes")
+    })
+  
+    
+
+```
+
+
+## **Summary**
+
+**Problem Statement**
+
+During my project, I addressed several problems:  
+
+* Where is the most dangerous areas in LA?
+* What is the most common type of crime in the last 5 years?
+* How does number of crimes change in these years?
+* How crimes and what proportion of crimes were solved?
+* Build an interactive plot and an interactive map so my customers can observe crime trend by themselves.  
+
+--------
+
+**How I addressed my problems**
+
+In my project, I used a huge dataset from [Kaggle.com](https://www.kaggle.com/kingburrito666/los-angeles-crime). I used functions from *dplyr* and *tidyr* to read, clean and save data. I also used **regular expression** to clean text errors in my data.  
+After cleaning my data, I used functions in package *ggplot2* to visulize data. Because I did a lot of work in data cleaning process and all data are in nice format, it's quite easy to visulize them. By doing this, I observed trends of crimes in LA from location, time, type and status.  
+What's more, I used *leaflet* and *Shiny* to build an interactive map, which looks like a Google map. You can easily see what happened near your home.
+
+--------
+
+**Insights from analysis**  
+
+To sum up, I find some features of crimes in LA:
+  
+* The most dangerous area is southern part of LA, which includes four adjacent divisions: **77th Street**, **Southwest**, **Pacific**, **North Hollywood** and **Southeast**.
+* Generally, the number of crimes in LA doesn't decrease in the last 5 year. **Non-violent crime, personal crime and inchoate crime have fluctuated since 2012.** **Weapon use and property crime** tend to increase. Los Angeles is not safer than it was a few years ago, but it is not more dangerous that it was, either.
+* The most common type of crimes is **property crime**. Non-violent crime and traffic accident are the second and third respectively. Personal Crime is always the fourth one and its number is about one third of the number of property crime.
+* From the perspective of crime status, only a small part of criminals were arrested, which may explain that the number of crimes doesn't decrease. Besides, almost all crimes were solved in different ways.  
+ 
+----------
+
+As I mentioned before, Los Angeles is not safer than it was. So I hope my audience can be aware that southern part is dangerous and can take care of personal belongings when they are on the streets. What's more, use information in my report to avoid troubles.  
+
+Limitations of my analysis do exist. Currently, I just completed some descriptive analysis. By doing this I uncovered some trends about crimes in LA. But I didn't conduct any predictive analysis or focus on some specific topics. I have the data to address problems such as what the most dangerous time is in a day or what is the most dangerous street in each division. I can reveal more information with this dataset. I need to learn more about text mining and data managemant so I can produce more valuable information in high efficiency.

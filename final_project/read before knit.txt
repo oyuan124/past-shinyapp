@@ -1,0 +1,16 @@
+Step 1: open file final_project_Rproj
+
+
+Step 2: set work directory to this folder (session -> set working directory -> choose directory)
+
+
+Step 3: click publish on the top right corner of rmd interface and choose shinyapps.io
+as the destination  
+
+or  you can just click on button "run document" and skip Step 4
+
+
+Step 4: follow instruction on shinyapps.io to publish file
+
+
+Step 5: Wait for 6 minutes or so
