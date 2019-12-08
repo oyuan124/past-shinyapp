@@ -1,0 +1,12 @@
+name: k_means
+title: k_means
+username:
+account: oliveryuan
+server: shinyapps.io
+hostUrl: https://api.shinyapps.io/v1
+appId: 238371
+bundleId: 1088040
+url: https://oliveryuan.shinyapps.io/k_means/
+when: 1511278498.4195
+asMultiple: FALSE
+asStatic: FALSE
