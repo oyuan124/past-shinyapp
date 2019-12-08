@@ -1,0 +1,12 @@
+name: analysis_of_loan_in_the_us_via_ggvis
+title: Analysis of Loan in the U.S. via ggvis
+username:
+account: oliveryuan
+server: shinyapps.io
+hostUrl: https://api.shinyapps.io/v1
+appId: 349001
+bundleId: 1393110
+url: https://oliveryuan.shinyapps.io/analysis_of_loan_in_the_us_via_ggvis/
+when: 1527259412.31753
+asMultiple: FALSE
+asStatic: FALSE

@@ -1,0 +1,130 @@
+---
+title: 'Analysis of Loan in the U.S. via ggvis'
+author: "Oliver Yuan"
+output:
+  html_document: default
+  html_notebook: default
+runtime: shiny
+---
+
+### INSTRUCTIONS
+Follow the instructions below to create charts from the *HW_LoanStats_17.csv* file used in HW2. The link to a detailed data dictionary is available on Sakai. Submit the .rmd R notebook on Sakai by the deadline: **Friday November 17 at 11:55pm**. 
+
+Create the following interactive graphs with ggvis. For each of these charts, you will need to aggregate the data set to import it into ggvis. Use the dplyr package to summarise the data for each question. You do not need to process the data separately for each question, so feel free to aggregate the data as efficiently as possible.The grades will depend on the accuracy of the chart to the description, the accuracy of the underlying data, and the attractiveness of the graph. All the user inputs should have labels and all the axes should have appropriate and offset titles.
+  
+*Load data and packages*  
+The following packages should be sufficient to manipulate the data and create the graphs. The original dataset should be named "dat", so the command to import the data is included for standardization. You can import additional packages if you wish, but you must use ggvis to create the graphs.  
+```{r, warning=FALSE, message=FALSE}
+library(ggvis)
+library(tidyverse)
+library(scales)
+dat <- read.csv("HW_LoanStats_17.csv")
+```
+***
+####HW4 Question 1: Change Data
+Summarise the data to examine the top reasons why people apply for loans on Lending Club. Remove the false issue year "20NA", and create a restricted dataset that only includes the top 5 loan purposes by the total loans (loan_amnt). *(5 pts)*
+
+```{r}
+dat <- droplevels(dat)
+
+ex1 <- dat %>%
+  group_by(purpose) %>% 
+  summarise(count_reason=n()) %>% 
+  arrange(desc(count_reason))
+
+
+dat_total <- dat %>% 
+  group_by(purpose) %>% 
+  summarise(total_amt = sum(loan_amnt)) %>% 
+  arrange(desc(total_amt)) %>% 
+  head(5)
+
+dat$issue_year <- as.character(dat$issue_year)
+dat$purpose <- as.character(dat$purpose)
+
+dat_re <- filter(dat,!issue_year %in% '20NA' & purpose %in% dat_total$purpose) 
+  
+dat_re$issue_year <- as.factor(dat_re$issue_year)
+dat_re$purpose <- as.factor(dat_re$purpose)
+
+dat_re <- droplevels(dat_re)
+
+```
+***
+####HW4 Question 2: Loan Purposes
+Explore the yearly trends in the loan purposes. Create a line graph with the year on the x-axis and allow user input to choose one of four variables on the y-axis: average loan amount, average funded amount, average DTI, or average annual income. There should be a line and points for each of the top 5 loan purposes for each year. As stated above, the axis titles should be informative, and there should be labels on the user input. *(5 pts)*
+  
+**Questions to consider**  
+Which loan purposes has the highest mean loan amount?    
+Which loan purpose has an average loan amount of more than $90,000?  
+Which two loan puposes have the highest DTI?  
+```{r}
+
+Q2 <- dat_re %>% 
+  group_by(issue_year, purpose) %>% 
+  summarise(avg_loan = mean(loan_amnt), avg_fund = mean(funded_amnt), avg_dti = mean(dti), avg_income = mean(annual_inc)) 
+
+
+  ggvis(Q2, x = ~issue_year, y = input_select(names(Q2[3:6]),selected = names(Q2[3]), label = "Choose Variable to plot", map =as.name), stroke = ~purpose) %>% 
+  layer_lines() %>% 
+    add_axis("x", title = "year") %>% 
+    add_axis("y", title = "Amount",title_offset=60)
+
+```
+***
+####HW4 Question 3: Purpose and Home Ownership
+Compare the composition of homeownership status for the top 5 loan purposes. Create a stacked bar chart with the year on the x-axis, the total amount of funded loans (funded_amnt) on the y-axis, and the bars filled by the homeownership status. Allow users to choose a single loan purpose among the top 5 loan purposes. *(5 pts)*
+
+**Questions to consider**  
+What is the yearly trend for the loan purposes?  
+How does the composition of home ownership change between loans with the purpose of home improvement compared to loans for credit cards?  
+```{r}
+Q3 <- dat_re %>% 
+  group_by(issue_year, purpose, home_ownership) %>% 
+  summarise(total_fund = sum(funded_amnt)) %>% 
+  droplevels()
+
+var_choices <- levels(Q3$purpose)
+
+ggvis(Q3, x = ~issue_year, y = ~total_fund, fill = ~home_ownership) %>% 
+  filter(purpose == eval(input_select(choices=var_choices,selected="credit_card", label = "Choose Purpose"))) %>% 
+  layer_bars() %>% 
+    add_axis("x", title = "year") %>% 
+    add_axis("y", title = "Amount",title_offset=80)
+```
+***
+####HW4 Question 4: Loan Amounts and Funded Amounts for Purposes
+Allow users to explore the relationship between the loan amount and the funded amount in a scatterplot. The user should be able to choose a year (with a default) and a purpose (with a default), and there should be a trend line included in the graph for the relationship between loan amount and funded amount for the chosen year and purpose. *(5 pts)*  
+```{r}
+year_choices <- levels(dat_re$issue_year)
+pp_choices <- levels(dat_re$purpose)
+
+ggvis(dat_re, x = ~loan_amnt, y = ~funded_amnt) %>% 
+    filter(purpose == eval(input_select(choices=pp_choices,selected="credit_card", label = "Choose Purpose"))) %>% 
+    filter(issue_year == eval(input_select(choices=year_choices,selected="2007", label = "Choose Year"))) %>% 
+    layer_points() %>% 
+    layer_smooths() %>% 
+    add_axis("x", title = "Loan Amount") %>% 
+    add_axis("y", title = "Funded Amount",title_offset=60)
+
+```
+***
+####HW4 Question 5: Distribution of Loan Amounts for Purposes
+Look at the distribution of the loan amounts by the main three loan_status values (charged off, current, or fully paid). Restrict the loan_status to only those values and drop the other levels of the loan_status factor. Plot the density for the loan_amount for each loan_status, and allow the user to select a single loan purpose among the top 5 loan purposes.The density should be partially transparent, and each loan_status should have a different color. Allow the user to choose the domain of the x-axis between 0 and 50,000, and the values outside of this range should be removed from the graph. *(5 pts)*  
+
+```{r}
+
+pp_choices <- levels(dat_re$purpose)
+
+Q5 <- dat_re %>% 
+  filter(loan_status %in% c("Charged Off", "Current", "Fully Paid")) %>% 
+  droplevels()
+
+ggvis(Q5, x = ~loan_amnt, fill = ~loan_status) %>% 
+  filter(purpose == eval(input_select(choices=pp_choices,selected="credit_card", label = "Choose Purpose"))) %>% 
+  group_by(loan_status) %>% 
+  layer_densities() %>% 
+  scale_numeric("x", domain = input_slider(0,50000, c(0,50000)), clamp = TRUE)
+
+```
+***
