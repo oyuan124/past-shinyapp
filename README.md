@@ -1,5 +1,5 @@
 # Shiny apps
-This repository stores some shiny apps I have built in the past.
+This repository stores some shiny apps I have built in the past. Below are links to those apps.
 
 1. [Los Angeles Crime Report](https://oliveryuan.shinyapps.io/2017_BAN6003_yuanc_finalproject/)
 2. [K-means for Iris Data (Slide bar)](https://oliveryuan.shinyapps.io/k_means/)
