@@ -1,0 +1,13 @@
+name: hw5_go
+title: HW5 Go
+username:
+account: oliveryuan
+server: shinyapps.io
+hostUrl: https://api.shinyapps.io/v1
+appId: 240741
+bundleId: 1099896
+url: https://oliveryuan.shinyapps.io/hw5_go/
+when: 1511821386.0791
+asMultiple: FALSE
+asStatic: FALSE
+ignoredFiles: mean_issue.R
